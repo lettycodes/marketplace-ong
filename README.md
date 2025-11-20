@@ -91,27 +91,6 @@ Products (Produtos das ONGs)
 ├── createdAt (DateTime)
 └── updatedAt (DateTime)
 
-Orders (Pedidos dos Consumidores)
-├── id (UUID, PK)
-├── userId (UUID, FK → Users.id, optional)
-├── organizationId (UUID, FK → Organizations.id) ⭐ Isolamento
-├── customerName (String)
-├── customerEmail (String)
-├── customerPhone (String, optional)
-├── totalAmount (Decimal)
-├── status (Enum: PENDING, CONFIRMED, PROCESSING, SHIPPED, DELIVERED, CANCELLED)
-├── createdAt (DateTime)
-└── updatedAt (DateTime)
-
-OrderItems (Itens dos Pedidos)
-├── id (UUID, PK)
-├── orderId (UUID, FK → Orders.id)
-├── productId (UUID, FK → Products.id)
-├── quantity (Integer)
-├── price (Decimal) ⭐ Preço no momento da compra
-├── createdAt (DateTime)
-└── updatedAt (DateTime)
-
 Logs (Sistema de Logs)
 ├── id (UUID, PK)
 ├── timestamp (DateTime)
@@ -130,9 +109,6 @@ Logs (Sistema de Logs)
 ```
 Organizations 1:N Users (uma ONG tem vários usuários)
 Organizations 1:N Products (uma ONG tem vários produtos)
-Organizations 1:N Orders (uma ONG recebe vários pedidos)
-
-Users 1:N Orders (um usuário pode fazer vários pedidos)
 
 Categories 1:N Products (uma categoria tem vários produtos)
 
@@ -283,11 +259,6 @@ O sistema vem com dados pré-configurados para facilitar os testes:
 - **Preços variados**: R$ 12,90 a R$ 89,90
 - **Estoque diferenciado**: 15 a 150 unidades
 
-#### 📋 **Pedidos de Exemplo**
-- **2 pedidos** já criados para demonstração
-- Status variados: PENDING, DELIVERED
-- Diferentes organizações e valores
-
 ## 🔌 Principais Rotas da API
 
 ### 📂 Rotas Públicas (Sem Autenticação)
@@ -374,35 +345,6 @@ GET /api/organizations
 Headers: Authorization: Bearer <token>
 Descrição: Dados da organização autenticada + estatísticas
 Resposta: { success, data: { organization: { _count: { products, orders } } } }
-
-GET /api/organizations/orders
-Query: ?page=1&limit=10&status=PENDING
-Headers: Authorization: Bearer <token>
-Descrição: Pedidos recebidos pela organização
-Resposta: { success, data: { orders, pagination } }
-```
-
-### 📦 Rotas de Pedidos
-
-```http
-POST /api/orders
-Body: { 
-  items: [{ productId, quantity }], 
-  customerName, 
-  customerEmail, 
-  customerPhone? 
-}
-Descrição: Criar pedido (automático: separação por organização)
-Resposta: { success, data: { orders: [{ organization, items, totalAmount }] } }
-
-GET /api/orders/customer/:email
-Query: ?page=1&limit=10
-Descrição: Histórico de pedidos por email do cliente
-Resposta: { success, data: { orders, pagination } }
-
-GET /api/orders/:id
-Descrição: Detalhes completos de um pedido específico  
-Resposta: { success, data: { order: { orderItems, organization } } }
 ```
 
 ### 📊 Rotas de Logs e Observabilidade
