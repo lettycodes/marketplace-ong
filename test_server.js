@@ -5,7 +5,7 @@ const port = 3002;
 app.use(express.json());
 
 app.get("/api/search/intelligent", (req, res) => {
-  console.log("🔍 Teste de busca inteligente executado!");
+  console.log("Teste de busca inteligente executado!");
   console.log("Query params:", req.query);
 
   const logData = {
@@ -18,7 +18,7 @@ app.get("/api/search/intelligent", (req, res) => {
     organizationId: "test-org",
   };
 
-  console.log("📝 Log de busca simulado:", logData);
+  console.log("Log de busca simulado:", logData);
 
   res.json({
     success: true,
@@ -35,8 +35,8 @@ app.get("/api/search/intelligent", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`🚀 Servidor de teste rodando em http://localhost:${port}`);
+  console.log(`Servidor de teste rodando em http://localhost:${port}`);
   console.log(
-    "💡 Teste a busca em: http://localhost:3002/api/search/intelligent?q=teste&category=alimentos"
+    "Teste a busca em: http://localhost:3002/api/search/intelligent?q=teste&category=alimentos"
   );
 });
