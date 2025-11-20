@@ -1,0 +1,442 @@
+import React, { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
+
+interface Log {
+  id: string
+  timestamp: string
+  method: string
+  route: string
+  statusCode: number
+  latencyMs: number
+  userId?: string
+  organizationId?: string
+  userAgent?: string
+  ipAddress?: string
+  searchQuery?: string
+  aiFilters?: any
+  aiSuccess?: boolean
+  fallbackApplied?: boolean
+}
+
+interface LogStats {
+  totalLogs: number
+  errorLogs: number
+  successLogs: number
+  searchLogs: number
+  errorRate: number
+}
+
+interface LogsResponse {
+  logs: Log[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    pages: number
+  }
+}
+
+export const LogsPage: React.FC = () => {
+  const { user } = useAuth()
+  const [logs, setLogs] = useState<Log[]>([])
+  const [stats, setStats] = useState<LogStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [filters, setFilters] = useState({
+    method: '',
+    statusCode: '',
+    route: '',
+    startDate: '',
+    endDate: ''
+  })
+
+  useEffect(() => {
+    async function loadData() {
+      if (!user?.isAdmin) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const params = new URLSearchParams()
+        params.append('page', currentPage.toString())
+        params.append('limit', '20')
+
+        for (const [key, value] of Object.entries(filters)) {
+          if (value) params.append(key, value)
+        }
+
+        const [logsResponse, statsResponse] = await Promise.all([
+          fetch(`/api/logs?${params}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          }),
+          fetch('/api/logs/stats', {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          })
+        ])
+
+        if (logsResponse.ok) {
+          const logsData: { success: boolean; data: LogsResponse } = await logsResponse.json()
+          setLogs(logsData.data.logs)
+          setTotalPages(logsData.data.pagination.pages)
+        }
+
+        if (statsResponse.ok) {
+          const statsData: { success: boolean; data: LogStats } = await statsResponse.json()
+          setStats(statsData.data)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [currentPage, filters, user?.isAdmin])
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+    setCurrentPage(1)
+  }
+
+  const getStatusColor = (statusCode: number) => {
+    if (statusCode >= 200 && statusCode < 300) return 'text-green-600 bg-green-100'
+    if (statusCode >= 300 && statusCode < 400) return 'text-yellow-600 bg-yellow-100'
+    if (statusCode >= 400 && statusCode < 500) return 'text-red-600 bg-red-100'
+    if (statusCode >= 500) return 'text-red-800 bg-red-200'
+    return 'text-gray-600 bg-gray-100'
+  }
+
+  const getMethodColor = (method: string) => {
+    switch (method) {
+      case 'GET': return 'text-blue-600 bg-blue-100'
+      case 'POST': return 'text-green-600 bg-green-100'
+      case 'PUT': return 'text-yellow-600 bg-yellow-100'
+      case 'DELETE': return 'text-red-600 bg-red-100'
+      case 'SEARCH': return 'text-purple-600 bg-purple-100'
+      default: return 'text-gray-600 bg-gray-100'
+    }
+  }
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('pt-BR')
+  }
+
+  const formatLatency = (ms: number) => {
+    if (ms > 1000) return `${(ms / 1000).toFixed(2)}s`
+    return `${ms}ms`
+  }
+
+  if (!user?.isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🔒</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Acesso Restrito</h1>
+          <p className="text-gray-600 mb-6">
+            Esta página é exclusiva para administradores.
+          </p>
+          <button 
+            onClick={() => window.history.back()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+          >
+            Voltar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl">Carregando logs...</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">Logs do Sistema</h1>
+          <p className="text-gray-600 mt-1">
+            Observabilidade e monitoramento de atividades da aplicação
+          </p>
+        </div>
+
+        {/* Estatísticas */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total de Logs</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.totalLogs}</p>
+                </div>
+                <div className="text-3xl">📝</div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Sucessos</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.successLogs}</p>
+                </div>
+                <div className="text-3xl">✅</div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Erros</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.errorLogs}</p>
+                </div>
+                <div className="text-3xl">❌</div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Buscas IA</p>
+                  <p className="text-2xl font-bold text-gray-900">{stats.searchLogs}</p>
+                </div>
+                <div className="text-3xl">🔍</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filtros */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Filtros</h3>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Método
+              </label>
+              <select
+                value={filters.method}
+                onChange={(e) => handleFilterChange('method', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              >
+                <option value="">Todos</option>
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PUT">PUT</option>
+                <option value="DELETE">DELETE</option>
+                <option value="SEARCH">SEARCH</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <select
+                value={filters.statusCode}
+                onChange={(e) => handleFilterChange('statusCode', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              >
+                <option value="">Todos</option>
+                <option value="200">200 (OK)</option>
+                <option value="400">400 (Bad Request)</option>
+                <option value="401">401 (Unauthorized)</option>
+                <option value="404">404 (Not Found)</option>
+                <option value="500">500 (Server Error)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Rota
+              </label>
+              <input
+                type="text"
+                placeholder="/api/products"
+                value={filters.route}
+                onChange={(e) => handleFilterChange('route', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data Início
+              </label>
+              <input
+                type="datetime-local"
+                value={filters.startDate}
+                onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data Fim
+              </label>
+              <input
+                type="datetime-local"
+                value={filters.endDate}
+                onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={() => {
+                setFilters({
+                  method: '',
+                  statusCode: '',
+                  route: '',
+                  startDate: '',
+                  endDate: ''
+                })
+                setCurrentPage(1)
+              }}
+              className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+            >
+              Limpar Filtros
+            </button>
+          </div>
+        </div>
+
+        {/* Tabela de Logs */}
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Logs de Atividade
+            </h3>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Timestamp
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Método
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rota
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Latência
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Busca IA
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatDate(log.timestamp)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getMethodColor(log.method)}`}>
+                        {log.method}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                      {log.route}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(log.statusCode)}`}>
+                        {log.statusCode}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {formatLatency(log.latencyMs)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {log.searchQuery ? (
+                        <div className="space-y-1">
+                          <div className="text-gray-900 font-medium">
+                            "{log.searchQuery}"
+                          </div>
+                          <div className="flex space-x-2">
+                            {log.aiSuccess !== undefined && (
+                              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                log.aiSuccess 
+                                  ? 'text-green-600 bg-green-100' 
+                                  : 'text-red-600 bg-red-100'
+                              }`}>
+                                IA: {log.aiSuccess ? 'OK' : 'Falha'}
+                              </span>
+                            )}
+                            {log.fallbackApplied && (
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full text-yellow-600 bg-yellow-100">
+                                Fallback
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+              <div className="text-sm text-gray-700">
+                Página {currentPage} de {totalPages}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Anterior
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {logs.length === 0 && (
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
+            <div className="text-gray-400 text-xl mb-2">📝</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-1">Nenhum log encontrado</h3>
+            <p className="text-gray-600">
+              Não há logs que correspondam aos filtros selecionados.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
