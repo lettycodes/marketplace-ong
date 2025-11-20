@@ -44,7 +44,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      REACT_APP_API_URL: http://localhost:3001
+      VITE_API_URL: http://localhost:3001
     ports:
       - "3000:3000"
     volumes:
@@ -54,7 +54,7 @@ services:
       - marketplace-network
     depends_on:
       - backend
-    command: npm start
+    command: npm run dev
 
 volumes:
   postgres_data:

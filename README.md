@@ -37,7 +37,7 @@ Um marketplace completo para conectar consumidores com ONGs parceiras. Cada orga
 ## 🛠️ Stack Tecnológica
 
 - **Backend**: Node.js + TypeScript + Express + Prisma ORM
-- **Frontend**: React + TypeScript + Context API
+- **Frontend**: React + TypeScript + Vite + Context API
 - **Banco de Dados**: PostgreSQL 15 + Docker
 - **Autenticação**: JWT com bcrypt
 - **AI/LLM**: OpenAI GPT-3.5-turbo
@@ -168,7 +168,7 @@ DATABASE_URL="postgresql://marketplace_user:marketplace_password@localhost:5433/
 PORT=3001
 
 # Frontend Configuration  
-REACT_APP_API_URL=http://localhost:3001
+VITE_API_URL=http://localhost:3001
 
 # Docker Database Settings
 POSTGRES_DB=marketplace
